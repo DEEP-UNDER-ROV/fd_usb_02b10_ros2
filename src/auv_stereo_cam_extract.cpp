@@ -26,8 +26,8 @@ int ExtractCameraFeed(cv::VideoCapture& cap, bool stereoCamera, cv::Mat& singleC
     cap.read(frame);
 
     if(frame.empty()) return 1;
-    
-    if(cameraFlip) cv::flip(frame, frame, 0);
+
+    if(cameraFlip) cv::flip(frame, frame, -1);
 
     singleCamera = frame;
     if (stereoCamera){
