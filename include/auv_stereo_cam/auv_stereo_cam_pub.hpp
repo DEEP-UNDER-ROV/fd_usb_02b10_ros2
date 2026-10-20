@@ -26,6 +26,7 @@ namespace auv_stereo_cam{
             bool stereo_camera_;
             bool auto_exposure_;
             int manual_exposure_unit_;
+            bool camera_flip_;
 
             image_transport::Publisher left_cam_pub_;
             image_transport::Publisher right_cam_pub_;

@@ -7,3 +7,4 @@ stereo_cam_pub:
     stereo_camera: true
     auto_exposure: false
     manual_exposure_unit: 500 
+    camera_flip: false

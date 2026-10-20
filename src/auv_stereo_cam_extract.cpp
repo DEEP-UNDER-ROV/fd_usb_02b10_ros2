@@ -21,11 +21,13 @@ int CameraSetup(cv::VideoCapture& cap, const std::string& cameraPath, int stereo
 }
 
 
-int ExtractCameraFeed(cv::VideoCapture& cap, bool stereoCamera, cv::Mat& singleCamera, cv::Mat& leftCamera, cv::Mat& rightCamera, int frameWidth, int frameHeight){
+int ExtractCameraFeed(cv::VideoCapture& cap, bool stereoCamera, cv::Mat& singleCamera, cv::Mat& leftCamera, cv::Mat& rightCamera, int frameWidth, int frameHeight, bool cameraFlip){
     cv::Mat frame;
     cap.read(frame);
 
     if(frame.empty()) return 1;
+    
+    if(cameraFlip) cv::flip(frame, frame, 0);
 
     singleCamera = frame;
     if (stereoCamera){

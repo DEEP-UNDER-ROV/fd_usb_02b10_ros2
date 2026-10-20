@@ -9,7 +9,8 @@ namespace auv_stereo_cam{
     frame_fps_ = this->declare_parameter<int>("camera_fps", 30);
     stereo_camera_ = this->declare_parameter<bool>("stereo_camera", true);
     auto_exposure_ = this->declare_parameter<bool>("auto_exposure", true);
-    manual_exposure_unit_ = this->declare_parameter<int>("manual_exposure_unit", 333);
+    manual_exposure_unit_ = this->declare_parameter<int>("manual_exposure_unit", 333 );
+    camera_flip_ = this->declare_parameter<bool>("camera_flip", false);
 
     left_cam_pub_ = image_transport::create_publisher(this, "stereo_cam/left_cam", rmw_qos_profile_sensor_data);
     right_cam_pub_ = image_transport::create_publisher(this, "stereo_cam/right_cam", rmw_qos_profile_sensor_data);
@@ -49,7 +50,7 @@ namespace auv_stereo_cam{
 
       int frameLoss = 0;
 
-      while(ExtractCameraFeed(cap_, stereo_camera_, singleCamera, leftCamera, rightCamera, frame_width_, frame_height_) && rclcpp::ok() && is_running_){
+      while(ExtractCameraFeed(cap_, stereo_camera_, singleCamera, leftCamera, rightCamera, frame_width_, frame_height_, camera_flip_) && rclcpp::ok() && is_running_){
         RCLCPP_ERROR(this->get_logger(), "ERROR : Frame is Empty!!!"); 
         rclcpp::sleep_for(100ms);
         if (++frameLoss > 10){
