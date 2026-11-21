@@ -85,7 +85,7 @@ The table below lists the supported resolutions for the FD-USB-02B10 sensor in *
 > * **High-Resolution Stereo (`1920x1520`, `1520x1520`, `1920x1080`, `1080x1080` per eye):** Supports `30`, `25`, `20`, `15`, `10`, `5`, `3`, and `1` FPS.
 > * **All Other Modes (`1280x720` / `640x480` stereo and all mono resolutions):** Fixed at `30` FPS in camera firmware.
 
-> **Note on Stereo Width:** `camera_width` and `camera_height` always specify the **single-eye (per-sensor)** resolution. When `stereo_camera` is `true`, the driver automatically requests $2 \times \text{camera\_width}$ from V4L2 and crops the left and right halves. For example, setting `camera_width:=1280` and `camera_height:=720` in stereo mode captures a `2560x720` combined frame and publishes two `1280x720` images.
+> **Note on Stereo Width:** `camera_width` and `camera_height` always specify the **single-eye (per-sensor)** resolution. When `stereo_camera` is `true`, the driver automatically requests $2 \times \texttt{camera\_width}$ from V4L2 and crops the left and right halves. For example, setting `camera_width:=1280` and `camera_height:=720` in stereo mode captures a `2560x720` combined frame and publishes two `1280x720` images.
 
 ---
 
@@ -149,7 +149,7 @@ ros2 run rqt_reconfigure rqt_reconfigure
 
 When `auto_exposure` is set to `false`, the driver configures V4L2 manual exposure (`CAP_PROP_AUTO_EXPOSURE = 1`) using `manual_exposure_unit`. Following the V4L2 absolute exposure specification (`V4L2_CID_EXPOSURE_ABSOLUTE`), **1 unit equals $10^{-4}\text{ seconds}$ ($0.1\text{ ms}$ or $100\ \mu\text{s}$)**:
 
-$$t_{\text{exposure}} = \text{manual\_exposure\_unit} \times 10^{-4}\text{ s} = \frac{\text{manual\_exposure\_unit}}{10}\text{ ms}$$
+$$t_{\text{exposure}} = \texttt{manual\_exposure\_unit} \times 10^{-4}\text{ s} = \frac{\texttt{manual\_exposure\_unit}}{10}\text{ ms}$$
 
 | `manual_exposure_unit` | Exposure Time | Equivalent Shutter Speed | Typical Use Case |
 | :--- | :--- | :--- | :--- |
@@ -158,7 +158,7 @@ $$t_{\text{exposure}} = \text{manual\_exposure\_unit} \times 10^{-4}\text{ s} = 
 | **`100`** | $10.0\text{ ms}$ | $1/100\text{ s}$ | Moderate motion reduction in well-lit environments. |
 | **`50`** | $5.0\text{ ms}$ | $1/200\text{ s}$ | Fast-moving robotics / underwater or outdoor scenes to minimize motion blur. |
 
-> **Tip:** Keep $t_{\text{exposure}} \le \frac{1}{\text{camera\_fps}}$ (for example, `manual_exposure_unit <= 333` at 30 FPS). Setting an exposure time longer than the frame period forces the sensor to drop below the target frame rate.
+> **Tip:** Keep $t_{\text{exposure}} \le \frac{1}{\texttt{camera\_fps}}$ (for example, `manual_exposure_unit <= 333` at 30 FPS). Setting an exposure time longer than the frame period forces the sensor to drop below the target frame rate.
 
 ---
 
