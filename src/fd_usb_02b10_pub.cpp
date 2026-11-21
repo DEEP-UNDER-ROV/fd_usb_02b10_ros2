@@ -12,6 +12,8 @@ namespace fd_usb_02b10_ros2 {
     manual_exposure_unit_ = this->declare_parameter<int>("manual_exposure_unit", 333);
     camera_flip_ = this->declare_parameter<bool>("camera_flip", false);
 
+    param_callback_handle_ = this->add_on_set_parameters_callback(std::bind(&FDUSB02B10Pub::on_parameter_change, this, std::placeholders::_1));
+
     left_cam_pub_ = image_transport::create_publisher(this, "stereo_cam/left_cam", rmw_qos_profile_sensor_data);
     right_cam_pub_ = image_transport::create_publisher(this, "stereo_cam/right_cam", rmw_qos_profile_sensor_data);
     single_cam_pub_ = image_transport::create_publisher(this, "single_cam/feed", rmw_qos_profile_sensor_data);
@@ -42,24 +44,153 @@ namespace fd_usb_02b10_ros2 {
         cap_.release();
     }
   }
+
+  rcl_interfaces::msg::SetParametersResult FDUSB02B10Pub::on_parameter_change(const std::vector<rclcpp::Parameter> & parameters) {
+    rcl_interfaces::msg::SetParametersResult result;
+    result.successful = true;
+
+    std::lock_guard<std::mutex> lock(param_mutex_);
+
+    std::string new_path = camera_path_;
+    int new_width = frame_width_;
+    int new_height = frame_height_;
+    int new_fps = frame_fps_;
+    bool new_stereo = stereo_camera_;
+    bool new_auto_exp = auto_exposure_;
+    int new_manual_exp = manual_exposure_unit_;
+    bool new_flip = camera_flip_;
+    bool needs_camera_reinit = false;
+
+    for (const auto & param : parameters) {
+      const auto & name = param.get_name();
+
+      if (name == "camera_path") {
+        if (param.as_string().empty()) {
+          result.successful = false;
+          result.reason = "camera_path cannot be empty";
+          return result;
+        }
+        new_path = param.as_string();
+        needs_camera_reinit = true;
+      } else if (name == "camera_width") {
+        if (param.as_int() <= 0) {
+          result.successful = false;
+          result.reason = "camera_width must be > 0";
+          return result;
+        }
+        new_width = static_cast<int>(param.as_int());
+        needs_camera_reinit = true;
+      } else if (name == "camera_height") {
+        if (param.as_int() <= 0) {
+          result.successful = false;
+          result.reason = "camera_height must be > 0";
+          return result;
+        }
+        new_height = static_cast<int>(param.as_int());
+        needs_camera_reinit = true;
+      } else if (name == "camera_fps") {
+        if (param.as_int() <= 0) {
+          result.successful = false;
+          result.reason = "camera_fps must be > 0";
+          return result;
+        }
+        new_fps = static_cast<int>(param.as_int());
+        needs_camera_reinit = true;
+      } else if (name == "stereo_camera") {
+        new_stereo = param.as_bool();
+        needs_camera_reinit = true;
+      } else if (name == "auto_exposure") {
+        new_auto_exp = param.as_bool();
+        needs_camera_reinit = true;
+      } else if (name == "manual_exposure_unit") {
+        if (param.as_int() < 0) {
+          result.successful = false;
+          result.reason = "manual_exposure_unit must be >= 0";
+          return result;
+        }
+        new_manual_exp = static_cast<int>(param.as_int());
+        needs_camera_reinit = true;
+      } else if (name == "camera_flip") {
+        new_flip = param.as_bool();
+      }
+    }
+
+    camera_path_ = new_path;
+    frame_width_ = new_width;
+    frame_height_ = new_height;
+    frame_fps_ = new_fps;
+    stereo_camera_ = new_stereo;
+    auto_exposure_ = new_auto_exp;
+    manual_exposure_unit_ = new_manual_exp;
+    camera_flip_ = new_flip;
+
+    if (needs_camera_reinit) {
+      reinit_required_.store(true);
+      RCLCPP_INFO(this->get_logger(), "Parameter change detected. Scheduling camera re-initialization...");
+    }
+
+    return result;
+  }
   
   void FDUSB02B10Pub::capture_loop() {
     cv::Mat singleCamera, leftCamera, rightCamera;
 
     while (rclcpp::ok() && is_running_) {
 
+      std::string path;
+      int width, height, fps, manual_exp;
+      bool stereo, auto_exp, flip;
+      {
+        std::lock_guard<std::mutex> lock(param_mutex_);
+        path = camera_path_;
+        width = frame_width_;
+        height = frame_height_;
+        fps = frame_fps_;
+        stereo = stereo_camera_;
+        auto_exp = auto_exposure_;
+        manual_exp = manual_exposure_unit_;
+        flip = camera_flip_;
+      }
+
+      if (reinit_required_.exchange(false)) {
+        RCLCPP_INFO(this->get_logger(), "Re-initializing camera (%s | %dx%d @ %d FPS | %s | %s)...", path.c_str(), width, height, fps, stereo ? "Stereo" : "Single", auto_exp ? "Auto Exposure" : "Manual Exposure");
+
+        if (cap_.isOpened()) {
+          cap_.release();
+        }
+
+        while (CameraSetup(cap_, path, stereo, width, height, fps, auto_exp, manual_exp) && rclcpp::ok() && is_running_) {
+          RCLCPP_ERROR_THROTTLE(this->get_logger(), *this->get_clock(), 2000, "ERROR : Camera Re-init Failed! Waiting for Camera...");
+          std::lock_guard<std::mutex> lock(param_mutex_);
+          path = camera_path_;
+          width = frame_width_;
+          height = frame_height_;
+          fps = frame_fps_;
+          stereo = stereo_camera_;
+          auto_exp = auto_exposure_;
+          manual_exp = manual_exposure_unit_;
+        }
+
+        if (!rclcpp::ok() || !is_running_) break;
+        RCLCPP_INFO(this->get_logger(), "Camera Re-initialized Successfully!!!");
+      }
+
       int frameLoss = 0;
 
-      while (ExtractCameraFeed(cap_, stereo_camera_, singleCamera, leftCamera, rightCamera, frame_width_, frame_height_, camera_flip_) && rclcpp::ok() && is_running_) {
+      while (ExtractCameraFeed(cap_, stereo, singleCamera, leftCamera, rightCamera, width, height, flip) && rclcpp::ok() && is_running_ && !reinit_required_.load()) {
         RCLCPP_ERROR(this->get_logger(), "ERROR : Frame is Empty!!!"); 
         rclcpp::sleep_for(100ms);
         if (++frameLoss > 10) {
           cap_.release();
-          while (CameraSetup(cap_, camera_path_, stereo_camera_, frame_width_, frame_height_, frame_fps_, auto_exposure_, manual_exposure_unit_) && rclcpp::ok() && is_running_) {
+          while (CameraSetup(cap_, path, stereo, width, height, fps, auto_exp, manual_exp) && rclcpp::ok() && is_running_ && !reinit_required_.load()) {
             RCLCPP_ERROR_THROTTLE(this->get_logger(), *this->get_clock(), 2000, "ERROR : Camera Loss!!! Waiting for Camera...");
           }
-          RCLCPP_INFO(this->get_logger(), "Camera Found!!! FD-USB-02B10 Camera Publisher Continued!!!");
+          if (cap_.isOpened()) RCLCPP_INFO(this->get_logger(), "Camera Found!!! FD-USB-02B10 Camera Publisher Continued!!!");
         }
+      }
+
+      if (reinit_required_.load()) {
+        continue;
       }
 
       rclcpp::Time now = this->get_clock()->now();

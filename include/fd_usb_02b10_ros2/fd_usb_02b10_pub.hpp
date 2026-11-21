@@ -9,6 +9,12 @@
 #include <opencv2/opencv.hpp>
 #include "image_transport/image_transport.hpp"
 
+#include <atomic>
+#include <mutex>
+#include <string>
+#include <thread>
+#include <vector>
+
 using namespace std::chrono_literals;
 
 namespace fd_usb_02b10_ros2 {
@@ -18,6 +24,7 @@ namespace fd_usb_02b10_ros2 {
             virtual ~FDUSB02B10Pub();
         private:
             void capture_loop();
+            rcl_interfaces::msg::SetParametersResult on_parameter_change(const std::vector<rclcpp::Parameter> & parameters);
 
             std::string camera_path_;
             int frame_width_;
@@ -35,6 +42,10 @@ namespace fd_usb_02b10_ros2 {
             cv::VideoCapture cap_;
             std::thread capture_thread_;
             std::atomic<bool> is_running_{false};
+            std::atomic<bool> reinit_required_{false};
+            std::mutex param_mutex_;
+
+            rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr param_callback_handle_;
     };
 }
 
