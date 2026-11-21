@@ -81,6 +81,10 @@ The table below lists the supported resolutions for the FD-USB-02B10 sensor in *
 | 9 | **640x480** | `[x]` | `[x]` | 4:3 (VGA) |
 | 10 | **640x472** | `[x]` | `[ ]` | 8px-aligned VGA |
 
+> **Supported Frame Rates:**
+> * **High-Resolution Stereo (`1920x1520`, `1520x1520`, `1920x1080`, `1080x1080` per eye):** Supports `30`, `25`, `20`, `15`, `10`, `5`, `3`, and `1` FPS.
+> * **All Other Modes (`1280x720` / `640x480` stereo and all mono resolutions):** Fixed at `30` FPS in camera firmware.
+
 > **Note on Stereo Width:** `camera_width` and `camera_height` always specify the **single-eye (per-sensor)** resolution. When `stereo_camera` is `true`, the driver automatically requests $2 \times \text{camera\_width}$ from V4L2 and crops the left and right halves. For example, setting `camera_width:=1280` and `camera_height:=720` in stereo mode captures a `2560x720` combined frame and publishes two `1280x720` images.
 
 ---

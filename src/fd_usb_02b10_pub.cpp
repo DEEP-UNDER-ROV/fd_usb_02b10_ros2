@@ -3,14 +3,41 @@
 namespace fd_usb_02b10_ros2 {
   FDUSB02B10Pub::FDUSB02B10Pub(const rclcpp::NodeOptions & options) : Node("fd_usb_02b10_pub", options) {
 
-    camera_path_ = this->declare_parameter<std::string>("camera_path", "/dev/fd-usb-02b10");
-    frame_width_ = this->declare_parameter<int>("camera_width", 1280);
-    frame_height_ = this->declare_parameter<int>("camera_height", 720);
-    frame_fps_ = this->declare_parameter<int>("camera_fps", 30);
-    stereo_camera_ = this->declare_parameter<bool>("stereo_camera", true);
-    auto_exposure_ = this->declare_parameter<bool>("auto_exposure", true);
-    manual_exposure_unit_ = this->declare_parameter<int>("manual_exposure_unit", 333);
-    camera_flip_ = this->declare_parameter<bool>("camera_flip", false);
+    // Lamda Function to Help Writing Parameter Descriptor
+    auto make_desc = [](const std::string & text,
+                        const std::string & constraints = "",
+                        bool read_only = false) {
+      rcl_interfaces::msg::ParameterDescriptor desc;
+      desc.description = text;
+      desc.additional_constraints = constraints;
+      desc.read_only = read_only;
+      return desc;
+    };
+
+    camera_path_ = this->declare_parameter<std::string>("camera_path", "/dev/fd-usb-02b10", make_desc("V4L2 device path or persistent udev symlink."));
+    frame_width_ = this->declare_parameter<int>("camera_width", 1280, make_desc("Single-eye horizontal resolution in pixels.", "Supported widths: 640, 1080, 1280, 1520, 1920"));
+    frame_height_ = this->declare_parameter<int>("camera_height", 720, make_desc("Vertical resolution in pixels.", "Supported heights: 472, 480, 712, 720, 1072, 1080, 1512, 1520"));
+
+    auto fps_desc = make_desc("Requested capture frame rate (FPS).", "Supports 1, 3, 5, 10, 15, 20, 25, 30 FPS on high-res stereo modes; fixed at 30 FPS on all other modes.");
+    rcl_interfaces::msg::IntegerRange fps_range;
+    fps_range.from_value = 1;
+    fps_range.to_value = 30;
+    fps_range.step = 1;
+    fps_desc.integer_range.push_back(fps_range);
+    frame_fps_ = this->declare_parameter<int>("camera_fps", 30, fps_desc);
+
+    stereo_camera_ = this->declare_parameter<bool>("stereo_camera", true, make_desc("True for side-by-side stereo splitting; false for mono mode."));
+    auto_exposure_ = this->declare_parameter<bool>("auto_exposure", true, make_desc("True for V4L2 auto exposure; false for manual exposure."));
+
+    auto exp_desc = make_desc("Manual exposure time in units of 1e-4 seconds (used when auto_exposure is false).", "Keep <= (10000 / camera_fps) to maintain target FPS (e.g., <= 333 at 30 FPS).");
+    rcl_interfaces::msg::IntegerRange exp_range;
+    exp_range.from_value = 1;
+    exp_range.to_value = 5000;
+    exp_range.step = 1;
+    exp_desc.integer_range.push_back(exp_range);
+    manual_exposure_unit_ = this->declare_parameter<int>("manual_exposure_unit", 333, exp_desc);
+
+    camera_flip_ = this->declare_parameter<bool>("camera_flip", false, make_desc("Rotate output image 180 degrees immediately without re-initializing the camera."));
 
     rcl_interfaces::msg::ParameterDescriptor qos_desc;
     qos_desc.description = "Use Reliable QoS instead of Best Effort (SensorDataQoS). Set at startup only.";
