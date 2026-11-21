@@ -101,7 +101,8 @@ ros2 run fd_usb_02b10_ros2 fd_usb_02b10_ros2 --ros-args \
   -p camera_fps:=30 \
   -p stereo_camera:=true \
   -p auto_exposure:=false \
-  -p manual_exposure_unit:=100
+  -p manual_exposure_unit:=100 \
+  -p reliable_qos:=true
 ```
 
 ### Modify Parameters at Runtime
@@ -138,6 +139,7 @@ ros2 run rqt_reconfigure rqt_reconfigure
 | `auto_exposure` | `bool` | `true` | Re-initializes camera | `true` for V4L2 aperture-priority auto exposure; `false` for manual exposure. |
 | `manual_exposure_unit` | `int` | `333` | Re-initializes camera | Manual exposure time in units of $10^{-4}\text{ s}$ (used when `auto_exposure` is `false`). |
 | `camera_flip` | `bool` | `false` | Immediate (no re-init) | Rotates output frames $180^\circ$ for inverted camera mounts. |
+| `reliable_qos` | `bool` | `false` | Set at startup only | Use Reliable QoS instead of Best Effort (SensorDataQoS). |
 
 ### Understanding `manual_exposure_unit`
 

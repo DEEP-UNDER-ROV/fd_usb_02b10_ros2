@@ -12,11 +12,22 @@ namespace fd_usb_02b10_ros2 {
     manual_exposure_unit_ = this->declare_parameter<int>("manual_exposure_unit", 333);
     camera_flip_ = this->declare_parameter<bool>("camera_flip", false);
 
+    rcl_interfaces::msg::ParameterDescriptor qos_desc;
+    qos_desc.description = "Use Reliable QoS instead of Best Effort (SensorDataQoS). Set at startup only.";
+    qos_desc.read_only = true;
+    bool reliable_qos = this->declare_parameter<bool>("reliable_qos", false, qos_desc);
+
+    rmw_qos_profile_t qos_profile = rmw_qos_profile_sensor_data;
+    if (reliable_qos) {
+      qos_profile.reliability = RMW_QOS_POLICY_RELIABILITY_RELIABLE;
+      qos_profile.depth = 10;
+    }
+
     param_callback_handle_ = this->add_on_set_parameters_callback(std::bind(&FDUSB02B10Pub::on_parameter_change, this, std::placeholders::_1));
 
-    left_cam_pub_ = image_transport::create_publisher(this, "stereo_cam/left_cam", rmw_qos_profile_sensor_data);
-    right_cam_pub_ = image_transport::create_publisher(this, "stereo_cam/right_cam", rmw_qos_profile_sensor_data);
-    single_cam_pub_ = image_transport::create_publisher(this, "single_cam/feed", rmw_qos_profile_sensor_data);
+    left_cam_pub_ = image_transport::create_publisher(this, "stereo_cam/left_cam", qos_profile);
+    right_cam_pub_ = image_transport::create_publisher(this, "stereo_cam/right_cam", qos_profile);
+    single_cam_pub_ = image_transport::create_publisher(this, "single_cam/feed", qos_profile);
 
     is_running_ = true;
 
@@ -31,6 +42,8 @@ namespace fd_usb_02b10_ros2 {
 
     if (auto_exposure_) RCLCPP_INFO(this->get_logger(), "Auto Exposure is selected");
     else RCLCPP_INFO(this->get_logger(), "Manual Exposure is selected (Manual Exposure Unit : %d)", manual_exposure_unit_);
+
+    RCLCPP_INFO(this->get_logger(), "QoS Reliability : %s", reliable_qos ? "Reliable" : "Best Effort (SensorDataQoS)");
 
     capture_thread_ = std::thread(&FDUSB02B10Pub::capture_loop, this);
   }
