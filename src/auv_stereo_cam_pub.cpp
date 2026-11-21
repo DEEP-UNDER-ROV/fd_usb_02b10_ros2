@@ -3,7 +3,7 @@
 namespace auv_stereo_cam{
   StereoCamPub::StereoCamPub(const rclcpp::NodeOptions & options) : Node("stereo_cam_pub", options){
 
-    camera_path_ = this->declare_parameter<std::string>("camera_path", "/dev/video2");
+    camera_path_ = this->declare_parameter<std::string>("camera_path", "/dev/fd-usb-02b10");
     frame_width_ = this->declare_parameter<int>("camera_width", 1280);
     frame_height_ = this->declare_parameter<int>("camera_height", 720);
     frame_fps_ = this->declare_parameter<int>("camera_fps", 30);
