@@ -1,5 +1,5 @@
-#ifndef AUV_STEREO_CAM_EXTRACT_HPP
-#define AUV_STEREO_CAM_EXTRACT_HPP
+#ifndef FD_USB_02B10_EXTRACT_HPP
+#define FD_USB_02B10_EXTRACT_HPP
 
 #include <opencv2/opencv.hpp>
 #include <string>

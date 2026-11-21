@@ -1,4 +1,4 @@
-#include "auv_stereo_cam/auv_stereo_cam_extract.hpp"
+#include "fd_usb_02b10_ros2/fd_usb_02b10_extract.hpp"
 
 int CameraSetup(cv::VideoCapture& cap, const std::string& cameraPath, int stereoCamera, int frameWidth, int frameHeight, int frameFPS, bool autoExposure, int manualExposureUnit){
     cap.open(cameraPath, cv::CAP_V4L2);

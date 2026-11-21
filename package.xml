@@ -1,13 +1,19 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>auv_stereo_cam</name>
-  <version>0.0.0</version>
-  <description>TODO: Package description</description>
+  <name>fd_usb_02b10_ros2</name>
+  <version>0.1.0</version>
+  <description>ROS 2 driver and stereo/single frame publisher for the FD-USB-02B10 camera.</description>
   <maintainer email="aqeel70106@gmail.com">aqeel-ghani</maintainer>
-  <license>Apache-2.0</license>
+  <license>MIT</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>rclcpp</depend>
+  <depend>sensor_msgs</depend>
+  <depend>cv_bridge</depend>
+  <depend>image_transport</depend>
+  <depend>libopencv-dev</depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>

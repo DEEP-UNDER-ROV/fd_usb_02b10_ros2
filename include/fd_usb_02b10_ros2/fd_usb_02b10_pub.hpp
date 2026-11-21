@@ -1,7 +1,7 @@
-#ifndef AUV_STEREO_CAM_PUB_HPP
-#define AUV_STEREO_CAM_PUB_HPP
+#ifndef FD_USB_02B10_PUB_HPP
+#define FD_USB_02B10_PUB_HPP
 
-#include "auv_stereo_cam/auv_stereo_cam_extract.hpp"
+#include "fd_usb_02b10_ros2/fd_usb_02b10_extract.hpp"
 
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/image.hpp"
@@ -11,11 +11,11 @@
 
 using namespace std::chrono_literals;
 
-namespace auv_stereo_cam{
-    class StereoCamPub : public rclcpp::Node{
+namespace fd_usb_02b10_ros2 {
+    class FDUSB02B10Pub : public rclcpp::Node {
         public:
-            explicit StereoCamPub(const rclcpp::NodeOptions & options = rclcpp::NodeOptions());
-            virtual ~StereoCamPub();
+            explicit FDUSB02B10Pub(const rclcpp::NodeOptions & options = rclcpp::NodeOptions());
+            virtual ~FDUSB02B10Pub();
         private:
             void capture_loop();
 
@@ -35,7 +35,6 @@ namespace auv_stereo_cam{
             cv::VideoCapture cap_;
             std::thread capture_thread_;
             std::atomic<bool> is_running_{false};
-
     };
 }
 
