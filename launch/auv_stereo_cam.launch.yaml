@@ -1,8 +1,0 @@
-launch:
-  - node:
-      pkg: "auv_stereo_cam"
-      exec: "auv_stereo_cam"
-      name: "stereo_cam_pub"
-      output: "screen"
-      param:
-        - from : "$(find-pkg-share auv_stereo_cam)/config/params.yaml"
