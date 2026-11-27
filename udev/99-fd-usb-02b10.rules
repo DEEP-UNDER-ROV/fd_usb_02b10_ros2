@@ -1,1 +1,1 @@
-SUBSYSTEM=="video4linux", ATTRS{idVendor}=="1bcf", ATTRS{idProduct}=="0b15", SYMLINK+="fd-usb-02b10", MODE="0660", GROUP="video"
+SUBSYSTEM=="video4linux", ATTRS{idVendor}=="1bcf", ATTRS{idProduct}=="0b15", ATTR{index}=="0",SYMLINK+="fd-usb-02b10", MODE="0660", GROUP="video"
