@@ -203,10 +203,10 @@ All image topics are published via `image_transport` using `SensorDataQoS` (`Bes
 | Topic | Message Type | `frame_id` | Description |
 | :--- | :--- | :--- | :--- |
 | `stereo_cam/left_cam` | `sensor_msgs/msg/Image` | `left_camera` | Left eye image (`bgr8`) in stereo mode (mirrors `single_cam/feed` in mono mode). |
-| `stereo_cam/left_cam/compressed` | `sensor_msgs/msg/Image` | `left_camera` | Compressed `JPEG` left eye image (`bgr8`) in stereo mode (mirrors `single_cam/feed` in mono mode). |
+| `stereo_cam/left_cam/compressed` | `sensor_msgs/msg/CompressedImage` | `left_camera` | Compressed `JPEG` left eye image (`bgr8`) in stereo mode (mirrors `single_cam/feed` in mono mode). |
 | `stereo_cam/right_cam` | `sensor_msgs/msg/Image` | `right_camera` | Right eye image (`bgr8`) in stereo mode (mirrors `single_cam/feed` in mono mode). |
-| `stereo_cam/right_cam/compressed` | `sensor_msgs/msg/Image` | `right_camera` | Compressed `JPEG` right eye image (`bgr8`) in stereo mode (mirrors `single_cam/feed` in mono mode). |
+| `stereo_cam/right_cam/compressed` | `sensor_msgs/msg/CompressedImage` | `right_camera` | Compressed `JPEG` right eye image (`bgr8`) in stereo mode (mirrors `single_cam/feed` in mono mode). |
 | `single_cam/feed` | `sensor_msgs/msg/Image` | `single_camera` | Full unsplit frame (`bgr8`): side-by-side stereo image or full mono frame. |
-| `single_cam/feed/compressed` | `sensor_msgs/msg/Image` | `single_camera` | Compressed `JPEG` full unsplit frame (`bgr8`): side-by-side stereo image or full mono frame. |
+| `single_cam/feed/compressed` | `sensor_msgs/msg/CompressedImage` | `single_camera` | Compressed `JPEG` full unsplit frame (`bgr8`): side-by-side stereo image or full mono frame. |
 
 ---
