@@ -101,6 +101,15 @@ namespace fd_usb_02b10_ros2 {
 
     param_callback_handle_ = this->add_on_set_parameters_callback(std::bind(&FDUSB02B10Pub::on_parameter_change, this, std::placeholders::_1));
 
+    const std::vector<std::string> allowed_plugins = {
+      "image_transport/raw",
+      "image_transport/compressed"
+    };
+
+    this->declare_parameter<std::vector<std::string>>("stereo_cam.left_cam.enable_pub_plugins", allowed_plugins);
+    this->declare_parameter<std::vector<std::string>>("stereo_cam.right_cam.enable_pub_plugins", allowed_plugins);
+    this->declare_parameter<std::vector<std::string>>("single_cam.feed.enable_pub_plugins", allowed_plugins);
+
     left_cam_pub_ = image_transport::create_publisher(this, "stereo_cam/left_cam", qos_profile);
     right_cam_pub_ = image_transport::create_publisher(this, "stereo_cam/right_cam", qos_profile);
     single_cam_pub_ = image_transport::create_publisher(this, "single_cam/feed", qos_profile);
