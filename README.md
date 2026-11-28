@@ -85,7 +85,7 @@ The table below lists the supported resolutions for the FD-USB-02B10 sensor in *
 > * **High-Resolution Stereo (`1920x1520`, `1520x1520`, `1920x1080`, `1080x1080` per eye):** Supports `30`, `25`, `20`, `15`, `10`, `5`, `3`, and `1` FPS.
 > * **All Other Modes (`1280x720` / `640x480` stereo and all mono resolutions):** Fixed at `30` FPS in camera firmware.
 
-> **Note on Stereo Width:** `camera_width` and `camera_height` always specify the **single-eye (per-sensor)** resolution. When `stereo_camera` is `true`, the driver automatically requests $2 \times$ `camera_width` from V4L2 and crops the left and right halves. For example, setting `camera_width:=1280` and `camera_height:=720` in stereo mode captures a `2560x720` combined frame and publishes two `1280x720` images.
+> **Note on Stereo and Mono Compatibility:** Resolutions that are not compatible with stereo or mono mode will **overwrite** `stereo_camera` parameter.
 
 ---
 
@@ -99,13 +99,12 @@ ros2 run fd_usb_02b10_ros2 fd_usb_02b10_ros2
 ### Run with Custom Startup Parameters
 ```bash
 ros2 run fd_usb_02b10_ros2 fd_usb_02b10_ros2 --ros-args \
-  -p camera_path:=/dev/fd-usb-02b10 \
-  -p camera_width:=640 \
-  -p camera_height:=480 \
+  -p camera_resolution:=3 \
   -p camera_fps:=30 \
-  -p stereo_camera:=true \
+  -p stereo_camera:=false \
   -p auto_exposure:=false \
-  -p manual_exposure_unit:=100 \
+  -p manual_exposure_unit:=166 \
+  -p camera_flip:=true \
   -p reliable_qos:=true
 ```
 
@@ -119,14 +118,48 @@ ros2 param set /fd_usb_02b10_pub manual_exposure_unit 100
 
 # Flip the image 180 degrees immediately (no stream interruption)
 ros2 param set /fd_usb_02b10_pub camera_flip true
-
-# Change the camera resolution (two ros parameter simultaneously)
-ros2 param load /fd_usb_02b10_pub <(printf "/fd_usb_02b10_pub:\n  ros__parameters:\n    camera_width: 640\n    camera_height: 480\n")
 ```
 
 Or adjust parameters interactively using `rqt_reconfigure`:
 ```bash
 ros2 run rqt_reconfigure rqt_reconfigure
+```
+
+### Modify Multiple Parameters Simultaneously
+#### YAML File (`ros2 param load`)
+Save a parameter preset to a `.yaml` file and load it into `/fd_usb_02b10_pub` *(in ROS 2 Jazzy, pass a regular file path rather than `<(...)` process substitution)*:
+
+```bash
+cat << 'EOF' > /tmp/fd_cam_preset.yaml
+/fd_usb_02b10_pub:
+  ros__parameters:
+    camera_resolution: 3
+    camera_fps: 30
+    stereo_camera: false
+    auto_exposure: false
+    manual_exposure_unit: 166
+    camera_flip: true
+EOF
+
+ros2 param load /fd_usb_02b10_pub /tmp/fd_cam_preset.yaml
+```
+
+> **Note:** `ros2 param load` applies parameters sequentially one by one. If a later parameter in the file fails validation, earlier valid parameters in that file will still remain applied.
+
+#### Single Atomic Transaction (`set_parameters_atomically`)
+To validate all parameters together (all-or-nothing rollback) and trigger only **one** camera re-initialization, call the `set_parameters_atomically` service (`type`: `1` = bool, `2` = integer, `4` = string):
+
+```bash
+ros2 service call /fd_usb_02b10_pub/set_parameters_atomically rcl_interfaces/srv/SetParametersAtomically "{
+  parameters: [
+    {name: 'camera_resolution', value: {type: 2, integer_value: 3}},
+    {name: 'camera_fps', value: {type: 2, integer_value: 30}},
+    {name: 'stereo_camera', value: {type: 1, bool_value: false}},
+    {name: 'auto_exposure', value: {type: 1, bool_value: false}},
+    {name: 'manual_exposure_unit', value: {type: 2, integer_value: 166}},
+    {name: 'camera_flip', value: {type: 1, bool_value: true}}
+  ]
+}"
 ```
 
 ---
@@ -136,12 +169,11 @@ ros2 run rqt_reconfigure rqt_reconfigure
 | Parameter | Type | Default | Runtime Behavior | Description |
 | :--- | :--- | :--- | :--- | :--- |
 | `camera_path` | `string` | `"/dev/fd-usb-02b10"` | Re-initializes camera | V4L2 device path or udev symlink (e.g., `/dev/video0`). |
-| `camera_width` | `int` | `1280` | Re-initializes camera | Horizontal resolution in pixels (per eye in stereo mode). |
-| `camera_height` | `int` | `720` | Re-initializes camera | Vertical resolution in pixels. |
-| `camera_fps` | `int` | `30` | Re-initializes camera | Requested capture frame rate in frames per second. |
+| `camera_resolution` | `int` | `7` | Re-initializes camera | Camera resolution selection (default: 1280x720) `Range: 1 - 10` |
+| `camera_fps` | `int` | `30` | Re-initializes camera | Requested capture frame rate in frames per second. `Range: 1 - 30` |
 | `stereo_camera` | `bool` | `true` | Re-initializes camera | `true` for side-by-side stereo splitting; `false` for mono mode. |
 | `auto_exposure` | `bool` | `true` | Re-initializes camera | `true` for V4L2 aperture-priority auto exposure; `false` for manual exposure. |
-| `manual_exposure_unit` | `int` | `333` | Re-initializes camera | Manual exposure time in units of $10^{-4}\text{ s}$ (used when `auto_exposure` is `false`). |
+| `manual_exposure_unit` | `int` | `333` | Re-initializes camera | Manual exposure time in units of $10^{-4}\text{ s}$ (used when `auto_exposure` is `false`). `Range: 3 - 2047` |
 | `camera_flip` | `bool` | `false` | Immediate (no re-init) | Rotates output frames $180^\circ$ for inverted camera mounts. |
 | `reliable_qos` | `bool` | `false` | Set at startup only | Use Reliable QoS instead of Best Effort (SensorDataQoS). |
 
@@ -166,12 +198,15 @@ where $N_{\text{exp}}$ is `manual_exposure_unit`.
 
 ## Published Topics
 
-All image topics are published via `image_transport` using `SensorDataQoS` (`Best Effort`, `Volatile`) with synchronized timestamps:
+All image topics are published via `image_transport` using `SensorDataQoS` (`Best Effort`, `Volatile`) or `Reliable QoS` with synchronized timestamps:
 
 | Topic | Message Type | `frame_id` | Description |
 | :--- | :--- | :--- | :--- |
 | `stereo_cam/left_cam` | `sensor_msgs/msg/Image` | `left_camera` | Left eye image (`bgr8`) in stereo mode (mirrors `single_cam/feed` in mono mode). |
+| `stereo_cam/left_cam/compressed` | `sensor_msgs/msg/Image` | `left_camera` | Compressed `JPEG` left eye image (`bgr8`) in stereo mode (mirrors `single_cam/feed` in mono mode). |
 | `stereo_cam/right_cam` | `sensor_msgs/msg/Image` | `right_camera` | Right eye image (`bgr8`) in stereo mode (mirrors `single_cam/feed` in mono mode). |
+| `stereo_cam/right_cam/compressed` | `sensor_msgs/msg/Image` | `right_camera` | Compressed `JPEG` right eye image (`bgr8`) in stereo mode (mirrors `single_cam/feed` in mono mode). |
 | `single_cam/feed` | `sensor_msgs/msg/Image` | `single_camera` | Full unsplit frame (`bgr8`): side-by-side stereo image or full mono frame. |
+| `single_cam/feed/compressed` | `sensor_msgs/msg/Image` | `single_camera` | Compressed `JPEG` full unsplit frame (`bgr8`): side-by-side stereo image or full mono frame. |
 
 ---
