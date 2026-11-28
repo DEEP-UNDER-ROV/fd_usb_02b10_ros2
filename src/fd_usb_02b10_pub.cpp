@@ -31,8 +31,8 @@ namespace fd_usb_02b10_ros2 {
 
     auto exp_desc = make_desc("Manual exposure time in units of 1e-4 seconds (used when auto_exposure is false).", "Keep <= (10000 / camera_fps) to maintain target FPS (e.g., <= 333 at 30 FPS).");
     rcl_interfaces::msg::IntegerRange exp_range;
-    exp_range.from_value = 1;
-    exp_range.to_value = 5000;
+    exp_range.from_value = 3;
+    exp_range.to_value = 2047;
     exp_range.step = 1;
     exp_desc.integer_range.push_back(exp_range);
     manual_exposure_unit_ = this->declare_parameter<int>("manual_exposure_unit", 333, exp_desc);
@@ -143,9 +143,9 @@ namespace fd_usb_02b10_ros2 {
         new_auto_exp = param.as_bool();
         needs_camera_reinit = true;
       } else if (name == "manual_exposure_unit") {
-        if (param.as_int() < 0) {
+        if (param.as_int() < 3 || param.as_int() > 2047) {
           result.successful = false;
-          result.reason = "manual_exposure_unit must be >= 0";
+          result.reason = "manual_exposure_unit must be between 3 and 2047";
           return result;
         }
         new_manual_exp = static_cast<int>(param.as_int());
