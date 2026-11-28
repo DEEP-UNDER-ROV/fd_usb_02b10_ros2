@@ -14,10 +14,19 @@
 #include <string>
 #include <thread>
 #include <vector>
+#include <array>
 
 using namespace std::chrono_literals;
 
 namespace fd_usb_02b10_ros2 {
+
+    struct ResolutionSpec {
+      const char * label;
+      int width;
+      int height;
+      bool supports_mono;
+      bool supports_stereo;
+    };
     class FDUSB02B10Pub : public rclcpp::Node {
         public:
             explicit FDUSB02B10Pub(const rclcpp::NodeOptions & options = rclcpp::NodeOptions());
@@ -27,10 +36,11 @@ namespace fd_usb_02b10_ros2 {
             rcl_interfaces::msg::SetParametersResult on_parameter_change(const std::vector<rclcpp::Parameter> & parameters);
 
             std::string camera_path_;
-            int frame_width_;
-            int frame_height_;
+            ResolutionSpec initial_spec_;
+            int camera_resolution_;
             int frame_fps_;
             bool stereo_camera_;
+            bool requested_stereo_;
             bool auto_exposure_;
             int manual_exposure_unit_;
             bool camera_flip_;
