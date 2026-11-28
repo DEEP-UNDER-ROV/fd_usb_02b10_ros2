@@ -115,18 +115,7 @@ namespace fd_usb_02b10_ros2 {
     single_cam_pub_ = image_transport::create_publisher(this, "single_cam/feed", qos_profile);
 
     is_running_ = true;
-
-    while (CameraSetup(cap_, camera_path_, stereo_camera_, initial_spec_.width, initial_spec_.height, frame_fps_, auto_exposure_, manual_exposure_unit_) && rclcpp::ok() && is_running_) {
-      RCLCPP_ERROR_THROTTLE(this->get_logger(), *this->get_clock(), 2000, "ERROR : Camera Not FOUND!!! Waiting for Camera...");
-    }
-
-    RCLCPP_INFO(this->get_logger(), "Camera Found!!! FD-USB-02B10 Camera Publisher Started!!!");
-    
-    if (stereo_camera_) RCLCPP_INFO(this->get_logger(), "Stereo Camera is selected (Resolution : %s; MAX FPS : %d)", initial_spec_.label, frame_fps_);
-    else RCLCPP_INFO(this->get_logger(), "Single Camera is selected (Resolution : %s; MAX FPS : %d)", initial_spec_.label, frame_fps_);
-
-    if (auto_exposure_) RCLCPP_INFO(this->get_logger(), "Auto Exposure is selected");
-    else RCLCPP_INFO(this->get_logger(), "Manual Exposure is selected (Manual Exposure Unit : %d)", manual_exposure_unit_);
+    reinit_required_ = true;
 
     RCLCPP_INFO(this->get_logger(), "QoS Reliability : %s", reliable_qos ? "Reliable" : "Best Effort (SensorDataQoS)");
 
@@ -151,12 +140,12 @@ namespace fd_usb_02b10_ros2 {
 
     std::string new_path = camera_path_;
     ResolutionSpec new_spec = initial_spec_;
+    int new_resolution = camera_resolution_;
     int new_fps = frame_fps_;
     bool new_stereo = requested_stereo_;
     bool new_auto_exp = auto_exposure_;
     int new_manual_exp = manual_exposure_unit_;
     bool new_flip = camera_flip_;
-    bool needs_camera_reinit = false;
 
     for (const auto & param : parameters) {
       const auto & name = param.get_name();
@@ -168,26 +157,14 @@ namespace fd_usb_02b10_ros2 {
           return result;
         }
         new_path = param.as_string();
-        needs_camera_reinit = true;
       } else if (name == "camera_resolution") {
         if (param.as_int() < 1 || param.as_int() > 10) {
           result.successful = false;
           result.reason = "Invalid startup camera_resolution; camera_resolution must be from 1 to 10";
           return result;
         }
-        new_spec = kSupportedResolutions[static_cast<int>(param.as_int()) - 1];
-        needs_camera_reinit = true;
-        stereo_camera_ = resolve_effective_stereo(new_spec, new_stereo);
-        camera_resolution_ = param.as_int();
-        if (new_stereo!= stereo_camera_){
-          RCLCPP_INFO(
-          this->get_logger(),
-          "Resolution #%d (%s) only supports %s mode; automatically using %s regardless of stereo_camera:=%s.",
-          camera_resolution_, initial_spec_.label,
-          stereo_camera_ ? "Stereo" : "Mono",
-          stereo_camera_ ? "Stereo" : "Mono",
-          new_stereo ? "true" : "false");
-        }
+        new_resolution = static_cast<int>(param.as_int());
+        new_spec = kSupportedResolutions[new_resolution - 1];
       } else if (name == "camera_fps") {
         if (param.as_int() < 1 || param.as_int() > 30) {
           result.successful = false;
@@ -195,22 +172,10 @@ namespace fd_usb_02b10_ros2 {
           return result;
         }
         new_fps = static_cast<int>(param.as_int());
-        needs_camera_reinit = true;
       } else if (name == "stereo_camera") {
         new_stereo = param.as_bool();
-        stereo_camera_ = resolve_effective_stereo(initial_spec_, new_stereo);
-        if (new_stereo!= stereo_camera_){
-          RCLCPP_INFO(
-          this->get_logger(),
-          "Resolution #%d (%s) only supports %s mode; automatically using %s regardless of stereo_camera:=%s.",
-          camera_resolution_, initial_spec_.label,
-          stereo_camera_ ? "Stereo" : "Mono",
-          stereo_camera_ ? "Stereo" : "Mono",
-          new_stereo ? "true" : "false");
-        }else needs_camera_reinit = true;
       } else if (name == "auto_exposure") {
         new_auto_exp = param.as_bool();
-        needs_camera_reinit = true;
       } else if (name == "manual_exposure_unit") {
         if (param.as_int() < 3 || param.as_int() > 2047) {
           result.successful = false;
@@ -218,19 +183,35 @@ namespace fd_usb_02b10_ros2 {
           return result;
         }
         new_manual_exp = static_cast<int>(param.as_int());
-        needs_camera_reinit = true;
       } else if (name == "camera_flip") {
         new_flip = param.as_bool();
       }
     }
 
+    bool new_effective_stereo = resolve_effective_stereo(new_spec, new_stereo);
+
+    if ((new_resolution != camera_resolution_ || new_stereo != requested_stereo_) &&
+      new_effective_stereo != new_stereo) {
+      RCLCPP_INFO(
+        this->get_logger(),
+        "Resolution #%d (%s) only supports %s mode; automatically using %s regardless of stereo_camera:=%s.",
+        new_resolution, new_spec.label,
+        new_effective_stereo ? "Stereo" : "Mono",
+        new_effective_stereo ? "Stereo" : "Mono",
+        new_stereo ? "true" : "false");
+    }
+
+    bool needs_camera_reinit = (new_path != camera_path_) || (new_resolution != camera_resolution_) || (new_effective_stereo != stereo_camera_) || (new_fps != frame_fps_) || (new_auto_exp != auto_exposure_) || (!new_auto_exp && new_manual_exp != manual_exposure_unit_);
+
     camera_path_ = new_path;
+    camera_resolution_ = new_resolution;
     initial_spec_ = new_spec;
     frame_fps_ = new_fps;
+    requested_stereo_ = new_stereo;
+    stereo_camera_ = new_effective_stereo;
     auto_exposure_ = new_auto_exp;
     manual_exposure_unit_ = new_manual_exp;
     camera_flip_ = new_flip;
-    requested_stereo_ = new_stereo;
 
     if (needs_camera_reinit) {
       reinit_required_.store(true);
@@ -268,7 +249,8 @@ namespace fd_usb_02b10_ros2 {
         }
 
         while (CameraSetup(cap_, path, stereo, spec.width, spec.height, fps, auto_exp, manual_exp) && rclcpp::ok() && is_running_) {
-          RCLCPP_ERROR_THROTTLE(this->get_logger(), *this->get_clock(), 2000, "ERROR : Camera Re-init Failed! Waiting for Camera...");
+          RCLCPP_ERROR_THROTTLE(this->get_logger(), *this->get_clock(), 2000, "ERROR : Camera Not Found! Waiting for Camera...");
+          rclcpp::sleep_for(250ms);
           std::lock_guard<std::mutex> lock(param_mutex_);
           path = camera_path_;
           spec = initial_spec_;
@@ -284,12 +266,13 @@ namespace fd_usb_02b10_ros2 {
 
       int frameLoss = 0;
 
-      while (ExtractCameraFeed(cap_, stereo, singleCamera, leftCamera, rightCamera, initial_spec_.width, initial_spec_.height, flip) && rclcpp::ok() && is_running_ && !reinit_required_.load()) {
+      while (ExtractCameraFeed(cap_, stereo, singleCamera, leftCamera, rightCamera, spec.width, spec.height, flip) && rclcpp::ok() && is_running_ && !reinit_required_.load()) {
         RCLCPP_ERROR(this->get_logger(), "ERROR : Frame is Empty!!!"); 
         rclcpp::sleep_for(100ms);
         if (++frameLoss > 10) {
           cap_.release();
-          while (CameraSetup(cap_, path, stereo, initial_spec_.width, initial_spec_.height, fps, auto_exp, manual_exp) && rclcpp::ok() && is_running_ && !reinit_required_.load()) {
+          while (CameraSetup(cap_, path, stereo, spec.width, spec.height, fps, auto_exp, manual_exp) && rclcpp::ok() && is_running_ && !reinit_required_.load()) {
+            rclcpp::sleep_for(100ms);
             RCLCPP_ERROR_THROTTLE(this->get_logger(), *this->get_clock(), 2000, "ERROR : Camera Loss!!! Waiting for Camera...");
           }
           if (cap_.isOpened()) RCLCPP_INFO(this->get_logger(), "Camera Found!!! FD-USB-02B10 Camera Publisher Continued!!!");
